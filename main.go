@@ -174,7 +174,7 @@ func main() {
 		defaultCollection = "shopping"
 	)
 
-	flag.StringVar(&httpAddr, "http", "", "run SSE HTTP transport on the given address, e.g. :8080 (defaults to stdio if empty)")
+	flag.StringVar(&httpAddr, "http", "", "run Streaming HTTP transport on the given address, e.g. 8080 (defaults to stdio if empty)")
 	flag.StringVar(&credentialsPath, "credentials", "", "path to Google Cloud credentials JSON file (optional; uses default auth if not provided)")
 	flag.Parse()
 
@@ -310,10 +310,10 @@ func main() {
 		// Create HTTP server
 		httpServer := server.NewStreamableHTTPServer(srv)
 
-		fmt.Printf("Streamable HTTP Endpoint: http://localhost%s/mcp\n", httpAddr)
+		fmt.Printf("Streamable HTTP Endpoint: http://localhost:%s/mcp\n", httpAddr)
 
 		// Start the server
-		if err := httpServer.Start(httpAddr); err != nil {
+		if err := httpServer.Start(":" + httpAddr); err != nil {
 			fatal("Streamable HTTP server failed to start: %v", err)
 		}
 		return

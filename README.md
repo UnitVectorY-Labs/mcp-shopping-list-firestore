@@ -28,6 +28,6 @@ This server is configured using one environment variable
 
 ### Run in Streamable HTTP Transport
 
-To run as an MCP HTTP server, use the `--http <addr>` flag (e.g., `--http :8080`). If not specified, the server defaults to stdio.
+To run as an MCP HTTP server, use the `--http <addr>` flag (e.g., `--http 8080`). If not specified, the server defaults to stdio.
 
 The MCP server can then be accessed at the following endpoint: `http://localhost:<port>/mcp`

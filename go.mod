@@ -5,7 +5,7 @@ go 1.25.0 // GOVERSION
 require (
 	cloud.google.com/go/firestore v1.18.0
 	github.com/google/uuid v1.6.0
-	github.com/mark3labs/mcp-go v0.38.0
+	github.com/mark3labs/mcp-go v0.39.1
 	google.golang.org/api v0.248.0
 )
 

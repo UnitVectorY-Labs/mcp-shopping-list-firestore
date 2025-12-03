@@ -1,3 +1,5 @@
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Concept](https://img.shields.io/badge/Status-Concept-white)](https://guide.unitvectorylabs.com/bestpractices/status/#concept) [![Go Report Card](https://goreportcard.com/badge/github.com/UnitVectorY-Labs/mcp-shopping-list-firestore)](https://goreportcard.com/report/github.com/UnitVectorY-Labs/mcp-shopping-list-firestore)
+
 # mcp-shopping-list-firestore
 
 A lightweight, Firebase-backed MCP server for management of a grocery list via simple CRUD operations.

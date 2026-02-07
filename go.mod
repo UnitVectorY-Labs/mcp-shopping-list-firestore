@@ -1,6 +1,6 @@
 module github.com/UnitVectorY-Labs/mcp-shopping-list-firestore
 
-go 1.25.6 // GOVERSION
+go 1.25.7 // GOVERSION
 
 require (
 	cloud.google.com/go/firestore v1.21.0

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -164,6 +165,15 @@ func (s *ShoppingListService) RemoveItem(ctx context.Context, id string) ([]Item
 // -----------------------------------------------------------------------------
 
 func main() {
+	// Set the build version from the build info if not set by the build system
+	if Version == "dev" || Version == "" {
+		if bi, ok := debug.ReadBuildInfo(); ok {
+			if bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+				Version = bi.Main.Version
+			}
+		}
+	}
+
 	log.SetFlags(log.LstdFlags | log.Lmsgprefix)
 	log.SetPrefix("mcp-shopping-list-firestore: ")
 

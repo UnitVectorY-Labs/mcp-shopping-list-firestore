@@ -1,0 +1,11 @@
+name: mcp-shopping-list-firestore
+default_branch: main
+config:
+  description: "A lightweight, Firebase-backed MCP server for management of a grocery list via simple CRUD operations."
+  license: MIT
+  language: go
+  release: release-go
+  justfile: true
+  codecov: true
+  docs:
+    enabled: false

@@ -1,4 +1,4 @@
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Concept](https://img.shields.io/badge/Status-Concept-white)](https://guide.unitvectorylabs.com/bestpractices/status/#concept) [![Go Report Card](https://goreportcard.com/badge/github.com/UnitVectorY-Labs/mcp-shopping-list-firestore)](https://goreportcard.com/report/github.com/UnitVectorY-Labs/mcp-shopping-list-firestore)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Concept](https://img.shields.io/badge/Status-Concept-white)](https://guide.unitvectorylabs.com/bestpractices/status/#concept) 
 
 # mcp-shopping-list-firestore
 

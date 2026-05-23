@@ -31,6 +31,15 @@ func TestFormatVersionPreservesExistingVPrefix(t *testing.T) {
 	}
 }
 
+func TestFormatVersionAddsVPrefixToPrerelease(t *testing.T) {
+	got := formatVersion("mcp-shopping-list-firestore", "1.2.3-rc1")
+	want := fmt.Sprintf("mcp-shopping-list-firestore version v1.2.3-rc1 (%s, %s/%s)", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+
+	if got != want {
+		t.Fatalf("unexpected version output: got %q, want %q", got, want)
+	}
+}
+
 func TestFormatVersionPreservesDevVersion(t *testing.T) {
 	got := formatVersion("mcp-shopping-list-firestore", "dev")
 	want := fmt.Sprintf("mcp-shopping-list-firestore version dev (%s, %s/%s)", runtime.Version(), runtime.GOOS, runtime.GOARCH)

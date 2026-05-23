@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -25,11 +26,13 @@ import (
 // Version is set by the build system.
 var Version = "dev"
 
-var semverRe = regexp.MustCompile(`^\d+\.\d+\.\d+`)
+var semverRe = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$`)
+})
 
 func formatVersion(projectName, version string) string {
 	normalized := version
-	if semverRe.MatchString(normalized) && !strings.HasPrefix(normalized, "v") {
+	if semverRe().MatchString(normalized) && !strings.HasPrefix(normalized, "v") {
 		normalized = "v" + normalized
 	}
 	return fmt.Sprintf("%s version %s (%s, %s/%s)", projectName, normalized, runtime.Version(), runtime.GOOS, runtime.GOARCH)

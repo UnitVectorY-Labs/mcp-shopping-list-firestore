@@ -28,6 +28,14 @@ This server is configured using one environment variable
 - `GOOGLE_CLOUD_PROJECT`: Google Cloud Project ID (required)
 - `FIRESTORE_DATABASE`: Firestore database name (required)
 
+### Version output
+
+Use `--version` to print the application version in this format:
+
+```text
+mcp-shopping-list-firestore version vX.Y.Z (goX.Y, os/arch)
+```
+
 ### Run in Streamable HTTP Transport
 
 To run as an MCP HTTP server, use the `--http <addr>` flag (e.g., `--http 8080`). If not specified, the server defaults to stdio.

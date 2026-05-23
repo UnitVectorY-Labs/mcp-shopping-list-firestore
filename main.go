@@ -6,9 +6,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"regexp"
+	"runtime"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -20,6 +24,21 @@ import (
 
 // Version is set by the build system.
 var Version = "dev"
+
+var semverRe = regexp.MustCompile(`^\d+\.\d+\.\d+`)
+
+func formatVersion(projectName, version string) string {
+	normalized := version
+	if semverRe.MatchString(normalized) && !strings.HasPrefix(normalized, "v") {
+		normalized = "v" + normalized
+	}
+	return fmt.Sprintf("%s version %s (%s, %s/%s)", projectName, normalized, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+}
+
+func writeVersion(w io.Writer, projectName, version string) error {
+	_, err := fmt.Fprintln(w, formatVersion(projectName, version))
+	return err
+}
 
 // -----------------------------------------------------------------------------
 // Domain types
@@ -182,11 +201,20 @@ func main() {
 		projectID         string
 		credentialsPath   string
 		defaultCollection = "shopping"
+		showVersion       bool
 	)
 
 	flag.StringVar(&httpAddr, "http", "", "run Streaming HTTP transport on the given address, e.g. 8080 (defaults to stdio if empty)")
 	flag.StringVar(&credentialsPath, "credentials", "", "path to Google Cloud credentials JSON file (optional; uses default auth if not provided)")
+	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	flag.Parse()
+
+	if showVersion {
+		if err := writeVersion(os.Stdout, "mcp-shopping-list-firestore", Version); err != nil {
+			fatal("write version: %v", err)
+		}
+		return
+	}
 
 	// Resolve project ID.
 	projectID = os.Getenv("GOOGLE_CLOUD_PROJECT")

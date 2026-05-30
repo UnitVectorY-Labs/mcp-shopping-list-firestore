@@ -367,7 +367,7 @@ func main() {
 // Helpers
 // -----------------------------------------------------------------------------
 
-func fatal(format string, a ...interface{}) {
+func fatal(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", a...)
 	os.Exit(1)
 }

@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/firestore v1.23.0
 	github.com/google/uuid v1.6.0
 	github.com/mark3labs/mcp-go v0.56.0
-	google.golang.org/api v0.287.1
+	google.golang.org/api v0.288.0
 )
 
 require (

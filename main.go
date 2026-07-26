@@ -258,6 +258,10 @@ func main() {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "list_items",
 		Description: "Retrieve all items from the shopping list.",
+		Title:       "List Shopping Items",
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint: true,
+		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListItemsInput) (
 		*mcp.CallToolResult, ListItemsResponse, error,
 	) {
@@ -278,6 +282,7 @@ func main() {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "upsert_item",
 		Description: "Create a new item or update an existing one. If the item has no id, it's created; otherwise it's updated.",
+		Title:       "Upsert Shopping Item",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpsertItemInput) (
 		*mcp.CallToolResult, ListItemsResponse, error,
 	) {
@@ -309,6 +314,7 @@ func main() {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "remove_item",
 		Description: "Remove an item from the shopping list by its ID.",
+		Title:       "Remove Shopping Item",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input RemoveItemInput) (
 		*mcp.CallToolResult, ListItemsResponse, error,
 	) {

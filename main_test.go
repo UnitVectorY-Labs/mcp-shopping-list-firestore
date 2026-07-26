@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -67,14 +68,19 @@ func TestWriteVersionWritesTrailingNewline(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 type stubItemService struct {
+	mu    sync.Mutex
 	items []Item
 }
 
 func (s *stubItemService) ListItems(_ context.Context) ([]Item, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.items, nil
 }
 
 func (s *stubItemService) UpsertItem(_ context.Context, input ItemInput) ([]Item, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if input.ID == nil || *input.ID == "" {
 		item := Item{
 			ID:        "stub-id",
@@ -98,7 +104,9 @@ func (s *stubItemService) UpsertItem(_ context.Context, input ItemInput) ([]Item
 }
 
 func (s *stubItemService) RemoveItem(_ context.Context, id string) ([]Item, error) {
-	filtered := s.items[:0]
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var filtered []Item
 	for _, it := range s.items {
 		if it.ID != id {
 			filtered = append(filtered, it)

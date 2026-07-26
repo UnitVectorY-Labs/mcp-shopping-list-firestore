@@ -191,7 +191,7 @@ func (s *ShoppingListService) RemoveItem(ctx context.Context, id string) ([]Item
 // MCP server wiring
 // -----------------------------------------------------------------------------
 
-// itemLister lists all items from the shopping list.
+// itemLister is the interface that ShoppingListService implements for MCP tool handlers.
 type itemLister interface {
 	ListItems(ctx context.Context) ([]Item, error)
 	UpsertItem(ctx context.Context, input ItemInput) ([]Item, error)

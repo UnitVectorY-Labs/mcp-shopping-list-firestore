@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"regexp"
 	"runtime"
@@ -17,8 +17,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/google/uuid"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/api/option"
 )
 
@@ -64,11 +63,20 @@ type ListItemsResponse struct {
 	Items []Item `json:"items"`
 }
 
-// UpsertItemRequest is the tool request for creating/updating a single item.
-type UpsertItemRequest struct {
-	ID       *string `json:"id,omitempty"`
-	Name     string  `json:"name"`
-	Quantity *string `json:"quantity,omitempty"`
+// -----------------------------------------------------------------------------
+// Tool input types
+// -----------------------------------------------------------------------------
+
+type ListItemsInput struct{}
+
+type UpsertItemInput struct {
+	Name     string  `json:"name" jsonschema:"Name of the item"`
+	ID       *string `json:"id,omitempty" jsonschema:"ID of the item (optional, if not provided a new item will be created)"`
+	Quantity *string `json:"quantity,omitempty" jsonschema:"Quantity of the item (optional)"`
+}
+
+type RemoveItemInput struct {
+	ID string `json:"id" jsonschema:"ID of the item to remove from the shopping list."`
 }
 
 // -----------------------------------------------------------------------------
@@ -183,6 +191,104 @@ func (s *ShoppingListService) RemoveItem(ctx context.Context, id string) ([]Item
 // MCP server wiring
 // -----------------------------------------------------------------------------
 
+// itemLister is the interface that ShoppingListService implements for MCP tool handlers.
+type itemLister interface {
+	ListItems(ctx context.Context) ([]Item, error)
+	UpsertItem(ctx context.Context, input ItemInput) ([]Item, error)
+	RemoveItem(ctx context.Context, id string) ([]Item, error)
+}
+
+// buildMCPServer creates a configured MCP server with the given service.
+func buildMCPServer(version string, svc itemLister) *mcp.Server {
+	srv := mcp.NewServer(&mcp.Implementation{Name: "mcp-shopping-list-firestore", Version: version}, nil)
+
+	// list_items
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "list_items",
+		Description: "Retrieve all items from the shopping list.",
+		Title:       "List Shopping Items",
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint: true,
+		},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListItemsInput) (
+		*mcp.CallToolResult, ListItemsResponse, error,
+	) {
+		toolCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		items, err := svc.ListItems(toolCtx)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("failed to list items: %v", err)}},
+				IsError: true,
+			}, ListItemsResponse{}, nil
+		}
+		return nil, ListItemsResponse{Items: items}, nil
+	})
+
+	// upsert_item
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "upsert_item",
+		Description: "Create a new item or update an existing one. If the item has no id, it's created; otherwise it's updated.",
+		Title:       "Upsert Shopping Item",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpsertItemInput) (
+		*mcp.CallToolResult, ListItemsResponse, error,
+	) {
+		if input.Name == "" {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: "'name' is required"}},
+				IsError: true,
+			}, ListItemsResponse{}, nil
+		}
+
+		toolCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+
+		items, err := svc.UpsertItem(toolCtx, ItemInput{
+			ID:       input.ID,
+			Name:     input.Name,
+			Quantity: input.Quantity,
+		})
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("failed to upsert item: %v", err)}},
+				IsError: true,
+			}, ListItemsResponse{}, nil
+		}
+		return nil, ListItemsResponse{Items: items}, nil
+	})
+
+	// remove_item
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "remove_item",
+		Description: "Remove an item from the shopping list by its ID.",
+		Title:       "Remove Shopping Item",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input RemoveItemInput) (
+		*mcp.CallToolResult, ListItemsResponse, error,
+	) {
+		if input.ID == "" {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: "invalid or missing 'id'"}},
+				IsError: true,
+			}, ListItemsResponse{}, nil
+		}
+
+		toolCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+
+		items, err := svc.RemoveItem(toolCtx, input.ID)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("failed to remove item: %v", err)}},
+				IsError: true,
+			}, ListItemsResponse{}, nil
+		}
+		return nil, ListItemsResponse{Items: items}, nil
+	})
+
+	return srv
+}
+
 func main() {
 	// Set the build version from the build info if not set by the build system
 	if Version == "dev" || Version == "" {
@@ -242,102 +348,7 @@ func main() {
 	}()
 
 	// Create MCP server.
-	srv := server.NewMCPServer("mcp-shopping-list-firestore", Version)
-
-	// Tools --------------------------------------------------------------------
-
-	// list_items
-	listItemsTool := mcp.NewTool(
-		"list_items",
-		mcp.WithDescription("Retrieve all items from the shopping list."),
-		mcp.WithTitleAnnotation("List Shopping Items"),
-		mcp.WithReadOnlyHintAnnotation(true),
-	)
-	srv.AddTool(listItemsTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		toolCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-
-		items, err := service.ListItems(toolCtx)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to list items: %v", err)), nil
-		}
-		return jsonResult(ListItemsResponse{Items: items})
-	})
-
-	// upsert_item
-	upsertItemTool := mcp.NewTool(
-		"upsert_item",
-		mcp.WithDescription("Create a new item or update an existing one. If the item has no id, it's created; otherwise it's updated."),
-		mcp.WithTitleAnnotation("Upsert Shopping Item"),
-		mcp.WithString("name", mcp.Description("Name of the item"), mcp.Required()),
-		mcp.WithString("id", mcp.Description("ID of the item (optional, if not provided a new item will be created)")),
-		mcp.WithString("quantity", mcp.Description("Quantity of the item (optional)")),
-	)
-	srv.AddTool(upsertItemTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := req.GetArguments()
-		var itemReq UpsertItemRequest
-
-		// Extract required name field
-		if name, ok := args["name"].(string); ok {
-			itemReq.Name = name
-		} else {
-			return mcp.NewToolResultError("invalid or missing 'name'"), nil
-		}
-
-		// Extract optional id field
-		if id, ok := args["id"].(string); ok && id != "" {
-			itemReq.ID = &id
-		}
-
-		// Extract optional quantity field
-		if quantity, ok := args["quantity"].(string); ok && quantity != "" {
-			itemReq.Quantity = &quantity
-		}
-
-		// Validate required fields
-		if itemReq.Name == "" {
-			return mcp.NewToolResultError("'name' is required"), nil
-		}
-
-		toolCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		defer cancel()
-
-		items, err := service.UpsertItem(toolCtx, ItemInput{
-			ID:       itemReq.ID,
-			Name:     itemReq.Name,
-			Quantity: itemReq.Quantity,
-		})
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to upsert item: %v", err)), nil
-		}
-		return jsonResult(ListItemsResponse{Items: items})
-	})
-
-	// remove_item
-	removeItemTool := mcp.NewTool(
-		"remove_item",
-		mcp.WithDescription("Remove an item from the shopping list by its ID."),
-		mcp.WithTitleAnnotation("Remove Shopping Item"),
-		mcp.WithString("id", mcp.Description("ID of the item to remove from the shopping list."), mcp.Required()),
-	)
-	srv.AddTool(removeItemTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := req.GetArguments()
-
-		// Extract required id field
-		id, ok := args["id"].(string)
-		if !ok || id == "" {
-			return mcp.NewToolResultError("invalid or missing 'id'"), nil
-		}
-
-		toolCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		defer cancel()
-
-		items, err := service.RemoveItem(toolCtx, id)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to remove item: %v", err)), nil
-		}
-		return jsonResult(ListItemsResponse{Items: items})
-	})
+	srv := buildMCPServer(Version, service)
 
 	// Transport ----------------------------------------------------------------
 
@@ -345,20 +356,24 @@ func main() {
 		fmt.Printf("Starting MCP server using Streamable HTTP transport on %s\n", httpAddr)
 		fmt.Printf("Project: %s | Database: %s | Collection: %s\n", projectID, firestoreDatabase, defaultCollection)
 
-		// Create HTTP server
-		httpServer := server.NewStreamableHTTPServer(srv)
+		handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
+			return srv
+		}, nil)
 
 		fmt.Printf("Streamable HTTP Endpoint: http://localhost:%s/mcp\n", httpAddr)
 
+		mux := http.NewServeMux()
+		mux.Handle("/mcp", handler)
+
 		// Start the server
-		if err := httpServer.Start(":" + httpAddr); err != nil {
+		if err := http.ListenAndServe(":"+httpAddr, mux); err != nil {
 			fatal("Streamable HTTP server failed to start: %v", err)
 		}
 		return
 	}
 
 	// stdio mode
-	if err := server.ServeStdio(srv); err != nil {
+	if err := srv.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		fatal("MCP stdio terminated: %v", err)
 	}
 }
@@ -370,13 +385,4 @@ func main() {
 func fatal(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", a...)
 	os.Exit(1)
-}
-
-// jsonResult marshals v as JSON into an MCP text result.
-func jsonResult(v any) (*mcp.CallToolResult, error) {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("encode response: %v", err)), nil
-	}
-	return mcp.NewToolResultText(string(b)), nil
 }

@@ -358,7 +358,7 @@ func main() {
 
 		handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 			return srv
-		}, nil)
+		}, &mcp.StreamableHTTPOptions{Stateless: true})
 
 		fmt.Printf("Streamable HTTP Endpoint: http://localhost:%s/mcp\n", httpAddr)
 

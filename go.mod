@@ -5,7 +5,7 @@ go 1.26.0 // GOVERSION
 require (
 	cloud.google.com/go/firestore v1.24.0
 	github.com/google/uuid v1.6.0
-	github.com/modelcontextprotocol/go-sdk v1.6.1
+	github.com/modelcontextprotocol/go-sdk v1.7.0
 	google.golang.org/api v0.291.0
 )
 
